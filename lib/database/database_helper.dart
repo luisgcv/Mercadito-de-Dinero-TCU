@@ -1,9 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
+import 'dart:ui' as ui;
 
+import 'package:flutter/material.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 
 class DatabaseHelper {
   // Singleton (una sola instancia de la DB)
@@ -137,6 +141,77 @@ class DatabaseHelper {
     } catch (e) {
       throw Exception('Error al exportar productos a JSON: $e');
     }
+  }
+
+  Future<String> exportarRespaldoCompleto() async {
+    try {
+      final productos = await getProductos();
+      final directorioBase = await _obtenerDirectorioRespaldo();
+      final nombreCarpeta = 'mercadito_export_${DateTime.now().millisecondsSinceEpoch}';
+      final directorioExportacion = Directory(join(directorioBase.path, nombreCarpeta));
+
+      if (!await directorioExportacion.exists()) {
+        await directorioExportacion.create(recursive: true);
+      }
+
+      final archivoJson = File(join(directorioExportacion.path, 'productos.json'));
+      await archivoJson.writeAsString(jsonEncode(productos), flush: true);
+
+      final manifest = <Map<String, dynamic>>[];
+
+      for (final producto in productos) {
+        final codigoQr = producto['codigo_qr']?.toString() ?? '';
+        final nombreProducto = producto['nombre']?.toString() ?? 'producto';
+        final idProducto = producto['id']?.toString() ?? 'sin_id';
+        final nombreArchivo =
+            '${idProducto}_${_limpiarNombreArchivo(nombreProducto)}.png';
+
+        final qrBytes = await _generarQrPng(codigoQr);
+        final archivoQr = File(join(directorioExportacion.path, nombreArchivo));
+        await archivoQr.writeAsBytes(qrBytes, flush: true);
+
+        manifest.add({
+          'id': producto['id'],
+          'nombre': nombreProducto,
+          'precio': producto['precio'],
+          'codigo_qr': codigoQr,
+          'qr_image': nombreArchivo,
+        });
+      }
+
+      final archivoManifest = File(join(directorioExportacion.path, 'manifest.json'));
+      await archivoManifest.writeAsString(jsonEncode(manifest), flush: true);
+
+      return directorioExportacion.path;
+    } catch (e) {
+      throw Exception('Error al exportar respaldo completo: $e');
+    }
+  }
+
+  Future<Uint8List> _generarQrPng(String data) async {
+    final painter = QrPainter(
+      data: data,
+      version: QrVersions.auto,
+      gapless: true,
+      color: Colors.black,
+      emptyColor: Colors.white,
+    );
+
+    final byteData = await painter.toImageData(1024, format: ui.ImageByteFormat.png);
+
+    if (byteData == null) {
+      throw Exception('No se pudo generar la imagen QR');
+    }
+
+    return byteData.buffer.asUint8List();
+  }
+
+  String _limpiarNombreArchivo(String input) {
+    return input
+        .trim()
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\s+'), '_')
+        .toLowerCase();
   }
 
   // IMPORTAR DESDE JSON:
