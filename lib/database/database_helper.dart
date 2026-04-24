@@ -29,11 +29,7 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(
-      path,
-      version: 1,
-      onCreate: _createDB,
-    );
+    return await openDatabase(path, version: 1, onCreate: _createDB);
   }
 
   // Crear tablas
@@ -106,11 +102,62 @@ class DatabaseHelper {
   Future<int> deleteProducto(int id) async {
     final db = await instance.database;
 
-    return await db.delete(
-      'productos',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    return await db.delete('productos', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<List<String>> obtenerNombresTablasUsuario() async {
+    final db = await instance.database;
+
+    final tablas = await db.rawQuery('''
+      SELECT name
+      FROM sqlite_master
+      WHERE type = 'table'
+        AND name NOT LIKE 'sqlite_%'
+    ''');
+
+    return tablas
+        .map((fila) => fila['name'])
+        .whereType<String>()
+        .toList(growable: false);
+  }
+
+  Future<Map<String, List<Map<String, dynamic>>>>
+  obtenerDatosDeTodasLasTablas() async {
+    final db = await instance.database;
+    final nombresTablas = await obtenerNombresTablasUsuario();
+    final datos = <String, List<Map<String, dynamic>>>{};
+
+    for (final tabla in nombresTablas) {
+      final registros = await db.query(tabla);
+      datos[tabla] = registros;
+    }
+
+    return datos;
+  }
+
+  Future<void> reemplazarDatosDesdeJsonCompleto(
+    Map<String, List<Map<String, dynamic>>> tablas,
+  ) async {
+    final db = await instance.database;
+    final nombresTablasActuales = await obtenerNombresTablasUsuario();
+
+    await db.transaction((txn) async {
+      for (final tabla in nombresTablasActuales) {
+        await txn.delete(tabla);
+      }
+
+      for (final tabla in nombresTablasActuales) {
+        final registros = tablas[tabla] ?? const <Map<String, dynamic>>[];
+
+        for (final registro in registros) {
+          await txn.insert(
+            tabla,
+            registro,
+            conflictAlgorithm: ConflictAlgorithm.replace,
+          );
+        }
+      }
+    });
   }
 
   // ---------------- RESPALDO JSON ----------------
@@ -147,14 +194,19 @@ class DatabaseHelper {
     try {
       final productos = await getProductos();
       final directorioBase = await _obtenerDirectorioRespaldo();
-      final nombreCarpeta = 'mercadito_export_${DateTime.now().millisecondsSinceEpoch}';
-      final directorioExportacion = Directory(join(directorioBase.path, nombreCarpeta));
+      final nombreCarpeta =
+          'mercadito_export_${DateTime.now().millisecondsSinceEpoch}';
+      final directorioExportacion = Directory(
+        join(directorioBase.path, nombreCarpeta),
+      );
 
       if (!await directorioExportacion.exists()) {
         await directorioExportacion.create(recursive: true);
       }
 
-      final archivoJson = File(join(directorioExportacion.path, 'productos.json'));
+      final archivoJson = File(
+        join(directorioExportacion.path, 'productos.json'),
+      );
       await archivoJson.writeAsString(jsonEncode(productos), flush: true);
 
       final manifest = <Map<String, dynamic>>[];
@@ -179,7 +231,9 @@ class DatabaseHelper {
         });
       }
 
-      final archivoManifest = File(join(directorioExportacion.path, 'manifest.json'));
+      final archivoManifest = File(
+        join(directorioExportacion.path, 'manifest.json'),
+      );
       await archivoManifest.writeAsString(jsonEncode(manifest), flush: true);
 
       return directorioExportacion.path;
@@ -197,7 +251,10 @@ class DatabaseHelper {
       emptyColor: Colors.white,
     );
 
-    final byteData = await painter.toImageData(1024, format: ui.ImageByteFormat.png);
+    final byteData = await painter.toImageData(
+      1024,
+      format: ui.ImageByteFormat.png,
+    );
 
     if (byteData == null) {
       throw Exception('No se pudo generar la imagen QR');
@@ -229,7 +286,9 @@ class DatabaseHelper {
       final data = jsonDecode(contenido);
 
       if (data is! List) {
-        throw Exception('Formato JSON invalido: se esperaba una lista de productos');
+        throw Exception(
+          'Formato JSON invalido: se esperaba una lista de productos',
+        );
       }
 
       final db = await instance.database;

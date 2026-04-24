@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-import '../database/database_helper.dart';
+import '../controllers/import_export_controller.dart';
+import '../controllers/producto_controller.dart';
 
 class ImportExportScreen extends StatefulWidget {
   const ImportExportScreen({super.key});
@@ -10,78 +12,95 @@ class ImportExportScreen extends StatefulWidget {
 }
 
 class _ImportExportScreenState extends State<ImportExportScreen> {
-  bool _isLoading = false;
-
-  Future<void> _exportarJson() async {
-    setState(() => _isLoading = true);
+  Future<void> _exportarJson(BuildContext context) async {
+    final controller = context.read<ImportExportController>();
 
     try {
-      final ruta = await DatabaseHelper.instance.exportarProductosJSON();
+      final ruta = await controller.exportarJsonCompleto();
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Backup JSON creado en: $ruta')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Backup JSON creado en: $ruta')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al exportar JSON: $e')),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al exportar JSON: $e')));
     }
   }
 
-  Future<void> _exportarCompleto() async {
-    setState(() => _isLoading = true);
+  Future<void> _compartirJson(BuildContext context) async {
+    final controller = context.read<ImportExportController>();
 
     try {
-      final ruta = await DatabaseHelper.instance.exportarRespaldoCompleto();
+      final ruta = await controller.compartirJsonCompleto();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Respaldo completo creado en: $ruta')),
+        SnackBar(content: Text('Se abrió el menú para compartir: $ruta')),
       );
     } catch (e) {
       if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al compartir JSON: $e')));
+    }
+  }
+
+  Future<void> _importarJson(BuildContext context) async {
+    final controller = context.read<ImportExportController>();
+
+    try {
+      final ruta = await controller.importarJsonCompleto();
+      if (!mounted) return;
+
+      await context.read<ProductoController>().cargarProductos();
+
+      if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al exportar respaldo completo: $e')),
+        SnackBar(content: Text('Backup JSON importado desde: $ruta')),
       );
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al importar JSON: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLoading = context.watch<ImportExportController>().isLoading;
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Importar / Exportar'),
-      ),
+      appBar: AppBar(title: const Text('Importar / Exportar')),
       body: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Exporta los productos como JSON o genera un respaldo completo con el archivo y las imágenes QR en PNG.',
+              'Gestiona respaldos de la base de datos en JSON',
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: _isLoading ? null : _exportarJson,
-              icon: const Icon(Icons.description),
-              label: const Text('Exportar solo JSON'),
+              onPressed: isLoading ? null : () => _importarJson(context),
+              icon: const Icon(Icons.upload_file),
+              label: const Text('Importar JSON'),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
-              onPressed: _isLoading ? null : _exportarCompleto,
-              icon: const Icon(Icons.qr_code),
-              label: const Text('Exportar todo con QR'),
+              onPressed: isLoading ? null : () => _exportarJson(context),
+              icon: const Icon(Icons.download_for_offline),
+              label: const Text('Exportar JSON'),
             ),
-            if (_isLoading) ...[
+            const SizedBox(height: 12),
+            ElevatedButton.icon(
+              onPressed: isLoading ? null : () => _compartirJson(context),
+              icon: const Icon(Icons.share),
+              label: const Text('Compartir JSON'),
+            ),
+            if (isLoading) ...[
               const SizedBox(height: 24),
               const Center(child: CircularProgressIndicator()),
             ],

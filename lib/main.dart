@@ -1,4 +1,5 @@
 import 'package:app/controllers/carrito_controller.dart';
+import 'package:app/controllers/import_export_controller.dart';
 import 'package:app/screens/home_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -17,7 +18,8 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => ProductoController()),
-        ChangeNotifierProvider(create: (_) => CarritoController()), 
+        ChangeNotifierProvider(create: (_) => CarritoController()),
+        ChangeNotifierProvider(create: (_) => ImportExportController()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -25,6 +27,5 @@ class MyApp extends StatelessWidget {
         home: const HomeScreen(),
       ),
     );
-    
   }
 }
