@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 
 import '../controllers/carrito_controller.dart';
 import '../controllers/producto_controller.dart';
+import '../services/audio_service.dart';
 
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
@@ -50,6 +51,7 @@ class _ScannerScreenState extends State<ScannerScreen> {
 
           if (producto != null) {
             carrito.agregarProducto(producto);
+            await AudioService.playSuccess();
 
             if (!context.mounted) return;
 

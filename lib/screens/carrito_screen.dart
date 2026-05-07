@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../controllers/carrito_controller.dart';
 import '../controllers/producto_controller.dart';
 import 'scanner_screen.dart';
+import '../services/audio_service.dart';
 import 'checkout_result_screen.dart';
 
 class CarritoScreen extends StatefulWidget {
@@ -114,6 +115,8 @@ class _CarritoScreenState extends State<CarritoScreen> {
     if (resultados.length == 1) {
       final producto = resultados.first;
       carritoController.agregarProducto(producto);
+      await AudioService.playSuccess();
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text("${producto.nombre} agregado")),
       );
@@ -131,8 +134,10 @@ class _CarritoScreenState extends State<CarritoScreen> {
               return ListTile(
                 title: Text(producto.nombre),
                 subtitle: Text("₡${producto.precio}"),
-                onTap: () {
+                onTap: () async {
                   carritoController.agregarProducto(producto);
+                  await AudioService.playSuccess();
+
                   Navigator.pop(sheetContext);
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text("${producto.nombre} agregado")),
