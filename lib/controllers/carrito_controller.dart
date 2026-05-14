@@ -20,6 +20,16 @@ class CarritoController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void incrementarCantidad(Producto producto) {
+    _service.incrementarCantidad(producto);
+    notifyListeners();
+  }
+
+  void decrementarCantidad(Producto producto) {
+    _service.decrementarCantidad(producto);
+    notifyListeners();
+  }
+
   void limpiar() {
     _service.limpiar();
     notifyListeners();

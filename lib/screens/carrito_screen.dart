@@ -22,22 +22,23 @@ class _CarritoScreenState extends State<CarritoScreen> {
     if (_isNavigating) return;
 
     // Obtener el controller ANTES de navegar
-    final carritoController = Provider.of<CarritoController>(context, listen: false);
-    
+    final carritoController = Provider.of<CarritoController>(
+      context,
+      listen: false,
+    );
+
     // Crear una copia de los datos necesarios
     final itemsData = carritoController.items
         .map(
-          (item) => CarritoItem(
-            producto: item.producto,
-            cantidad: item.cantidad,
-          ),
+          (item) =>
+              CarritoItem(producto: item.producto, cantidad: item.cantidad),
         )
         .toList();
     final totalData = carritoController.total;
 
     // Verificar que el contexto siga montado
     if (!mounted) return;
-    
+
     // Marcar que estamos navegando
     setState(() {
       _isNavigating = true;
@@ -48,13 +49,11 @@ class _CarritoScreenState extends State<CarritoScreen> {
       context,
       MaterialPageRoute(
         settings: const RouteSettings(name: '/checkout_result'),
-        builder: (_) => CheckoutResultScreen(
-          items: itemsData,
-          total: totalData,
-        ),
+        builder: (_) =>
+            CheckoutResultScreen(items: itemsData, total: totalData),
       ),
     );
-    
+
     // Resetear estado de navegación después de regresar
     if (mounted) {
       setState(() {
@@ -74,9 +73,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
           content: TextField(
             controller: busquedaController,
             autofocus: true,
-            decoration: const InputDecoration(
-              hintText: "Escribe el nombre",
-            ),
+            decoration: const InputDecoration(hintText: "Escribe el nombre"),
           ),
           actions: [
             TextButton(
@@ -96,10 +93,14 @@ class _CarritoScreenState extends State<CarritoScreen> {
 
     if (nombre == null || nombre.isEmpty) return;
 
-    final productosController =
-        Provider.of<ProductoController>(context, listen: false);
-    final carritoController =
-        Provider.of<CarritoController>(context, listen: false);
+    final productosController = Provider.of<ProductoController>(
+      context,
+      listen: false,
+    );
+    final carritoController = Provider.of<CarritoController>(
+      context,
+      listen: false,
+    );
 
     final resultados = await productosController.buscarPorNombre(nombre);
 
@@ -117,9 +118,9 @@ class _CarritoScreenState extends State<CarritoScreen> {
       carritoController.agregarProducto(producto);
       await AudioService.playSuccess();
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("${producto.nombre} agregado")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("${producto.nombre} agregado")));
       return;
     }
 
@@ -167,28 +168,117 @@ class _CarritoScreenState extends State<CarritoScreen> {
       body: Consumer<CarritoController>(
         builder: (context, carrito, child) {
           if (carrito.items.isEmpty) {
-            return const Center(
-              child: Text("El carrito está vacío"),
-            );
+            return const Center(child: Text("El carrito está vacío"));
           }
-          
+
           return ListView.builder(
             itemCount: carrito.items.length,
             itemBuilder: (context, index) {
               final item = carrito.items[index];
               final producto = item.producto;
 
-              return ListTile(
-                title: Text(producto.nombre),
-                subtitle: Text(
-                  "Cantidad: ${item.cantidad}  |  ₡${producto.precio} c/u\nSubtotal: ₡${item.subtotal}",
-                ),
-                isThreeLine: true,
-                trailing: IconButton(
-                  icon: const Icon(Icons.delete),
-                  onPressed: () {
-                    carrito.eliminarProducto(producto);
-                  },
+              return Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                child: Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      children: [
+                        // Información del producto
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                producto.nombre,
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                "₡${producto.precio.toStringAsFixed(2)} c/u",
+                                style: const TextStyle(fontSize: 14),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                "Subtotal: ₡${item.subtotal.toStringAsFixed(2)}",
+                                style: const TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.green,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        // Controles de cantidad
+                        Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey[300]!),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.remove),
+                                onPressed: () {
+                                  carrito.decrementarCantidad(producto);
+                                },
+                                iconSize: 20,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 36,
+                                  height: 36,
+                                ),
+                                padding: EdgeInsets.zero,
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                ),
+                                child: SizedBox(
+                                  width: 30,
+                                  child: Text(
+                                    "${item.cantidad}",
+                                    textAlign: TextAlign.center,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.add),
+                                onPressed: () {
+                                  carrito.incrementarCantidad(producto);
+                                },
+                                iconSize: 20,
+                                constraints: const BoxConstraints.tightFor(
+                                  width: 36,
+                                  height: 36,
+                                ),
+                                padding: EdgeInsets.zero,
+                              ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        // Botón eliminar
+                        IconButton(
+                          icon: const Icon(Icons.delete, color: Colors.red),
+                          onPressed: () {
+                            carrito.eliminarProducto(producto);
+                          },
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               );
             },
@@ -205,7 +295,10 @@ class _CarritoScreenState extends State<CarritoScreen> {
               children: [
                 Text(
                   "Total: ₡${carrito.total.toStringAsFixed(2)}",
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 12),
@@ -238,10 +331,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
                   ),
                   child: const Text(
                     "Vaciar carrito",
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                    ),
+                    style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
                 ),
               ],
@@ -253,9 +343,7 @@ class _CarritoScreenState extends State<CarritoScreen> {
         onPressed: () {
           Navigator.push(
             context,
-            MaterialPageRoute(
-              builder: (_) => const ScannerScreen(),
-            ),
+            MaterialPageRoute(builder: (_) => const ScannerScreen()),
           );
         },
         child: const Icon(Icons.qr_code_scanner),
