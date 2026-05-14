@@ -10,6 +10,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:provider/provider.dart';
 import '../controllers/producto_controller.dart';
 import '../models/producto.dart';
+import '../services/pdf_export_service.dart';
 
 class ProductosScreen extends StatefulWidget {
   const ProductosScreen({super.key});
@@ -42,13 +43,15 @@ class _ProductosScreenState extends State<ProductosScreen> {
 
     if (confirmar != true) return;
 
-    await Provider.of<ProductoController>(context, listen: false)
-        .eliminarProducto(producto.id!);
+    await Provider.of<ProductoController>(
+      context,
+      listen: false,
+    ).eliminarProducto(producto.id!);
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('${producto.nombre} eliminado')),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text('${producto.nombre} eliminado')));
   }
 
   Future<void> _exportarQrProducto(Producto producto) async {
@@ -87,9 +90,9 @@ class _ProductosScreenState extends State<ProductosScreen> {
         if (rutaMovil == null || rutaMovil.isEmpty) return;
 
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('QR guardado en: $rutaMovil')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('QR guardado en: $rutaMovil')));
         return;
       }
 
@@ -139,10 +142,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
     }
   }
 
-  Future<File> _guardarQrEnRuta(
-    String rutaArchivo,
-    Uint8List bytes,
-  ) async {
+  Future<File> _guardarQrEnRuta(String rutaArchivo, Uint8List bytes) async {
     final rutaNormalizada = _normalizarRutaArchivo(rutaArchivo);
     final rutaFinal = rutaNormalizada.toLowerCase().endsWith('.png')
         ? rutaNormalizada
@@ -201,10 +201,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
                 size: 220,
               ),
               const SizedBox(height: 16),
-              Text(
-                'QR: ${producto.codigoQr}',
-                textAlign: TextAlign.center,
-              ),
+              Text('QR: ${producto.codigoQr}', textAlign: TextAlign.center),
               const SizedBox(height: 8),
               Text('Precio: ₡${producto.precio}'),
             ],
@@ -225,14 +222,41 @@ class _ProductosScreenState extends State<ProductosScreen> {
     );
   }
 
+  Future<void> _exportarCatalogoPdf() async {
+    try {
+      final controller = Provider.of<ProductoController>(
+        context,
+        listen: false,
+      );
+      final productos = controller.productos;
+
+      if (productos.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No hay productos para exportar')),
+        );
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Generando catálogo PDF...')),
+      );
+
+      final pdfService = PdfExportService();
+      await pdfService.exportarCatalogoPdf(productos);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error al exportar PDF: $e')));
+    }
+  }
+
   @override
   void initState() {
     super.initState();
 
-    // Cargar productos al iniciar
     Future.microtask(() {
-      Provider.of<ProductoController>(context, listen: false)
-          .cargarProductos();
+      Provider.of<ProductoController>(context, listen: false).cargarProductos();
     });
   }
 
@@ -243,8 +267,14 @@ class _ProductosScreenState extends State<ProductosScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text("Productos"),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf),
+            tooltip: "Exportar catálogo PDF",
+            onPressed: _exportarCatalogoPdf,
+          ),
+        ],
       ),
-
       body: controller.productos.isEmpty
           ? const Center(child: Text("No hay productos"))
           : ListView.builder(
@@ -265,18 +295,15 @@ class _ProductosScreenState extends State<ProductosScreen> {
                 );
               },
             ),
-
-            floatingActionButton: FloatingActionButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => const ProductoFormScreen(),
-                  ),
-                );
-              },
-              child: const Icon(Icons.add),
-            ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          Navigator.push(
+            context,
+            MaterialPageRoute(builder: (_) => const ProductoFormScreen()),
+          );
+        },
+        child: const Icon(Icons.add),
+      ),
     );
   }
 }
