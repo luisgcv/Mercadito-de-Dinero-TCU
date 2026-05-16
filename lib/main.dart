@@ -1,6 +1,7 @@
 import 'package:app/controllers/carrito_controller.dart';
 import 'package:app/controllers/import_export_controller.dart';
-import 'package:app/screens/home_screen.dart';
+import 'package:app/screens/splash_screen.dart';
+import 'package:app/theme/app_brand.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'controllers/producto_controller.dart';
@@ -23,8 +24,9 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Mercadito',
-        home: const HomeScreen(),
+        title: 'Mercadito de Dinero',
+        theme: AppBrand.theme,
+        home: const SplashScreen(),
       ),
     );
   }

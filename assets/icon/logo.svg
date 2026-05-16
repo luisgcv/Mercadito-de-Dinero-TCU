@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- Filtros de Profundidad -->
+    <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="5" result="blur" />
+      <feComposite in="SourceGraphic" in2="blur" operator="over" />
+    </filter>
+    <filter id="sombraPro" x="-20%" y="-20%" width="150%" height="150%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#002D54" flood-opacity="0.4"/>
+    </filter>
+
+    <!-- Gradientes Modernos -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0062FF"/>
+      <stop offset="100%" style="stop-color:#00C6FF"/>
+    </linearGradient>
+    
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#FFD700"/>
+      <stop offset="100%" style="stop-color:#F99D1C"/>
+    </linearGradient>
+
+    <linearGradient id="glass" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff; stop-opacity:0.3"/>
+      <stop offset="100%" style="stop-color:#ffffff; stop-opacity:0.05"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fondo Principal -->
+  <rect width="512" height="512" rx="100" fill="url(#bgGrad)" filter="url(#sombraPro)"/>
+  
+  <!-- Brillos de cristal de fondo -->
+  <circle cx="400" cy="100" r="150" fill="url(#glass)" />
+
+  <!-- Carrito Estilizado -->
+  <g transform="translate(110, 180)" filter="url(#sombraPro)">
+    <!-- Cuerpo del Carrito (Forma más dinámica) -->
+    <path d="M10 20 H50 L85 140 H240 L270 20 H310" fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M65 50 H255 L230 140 H85 Z" fill="rgba(255,255,255,0.15)" stroke="#FFFFFF" stroke-width="4"/>
+    
+    <!-- Ruedas Pro -->
+    <circle cx="110" cy="175" r="28" fill="#1A1A1A" stroke="#FFFFFF" stroke-width="6"/>
+    <circle cx="110" cy="175" r="10" fill="url(#accentGrad)"/>
+    
+    <circle cx="215" cy="175" r="28" fill="#1A1A1A" stroke="#FFFFFF" stroke-width="6"/>
+    <circle cx="215" cy="175" r="10" fill="url(#accentGrad)"/>
+  </g>
+
+  <!-- Dinero Flotante (Jerarquía visual) -->
+  <g filter="url(#glow)">
+    <!-- Moneda Principal -->
+    <circle cx="380" cy="200" r="35" fill="url(#accentGrad)" stroke="#FFFFFF" stroke-width="4"/>
+    <text x="380" y="212" font-family="Verdana" font-size="36" fill="#FFFFFF" font-weight="900" text-anchor="middle">$</text>
+    
+    <!-- Monedas Secundarias -->
+    <circle cx="100" cy="380" r="20" fill="url(#accentGrad)" stroke="#FFFFFF" stroke-width="3"/>
+    <circle cx="430" cy="400" r="15" fill="url(#accentGrad)" stroke="#FFFFFF" stroke-width="2"/>
+  </g>
+
+  <!-- Textos con Tipografía Optimizada -->
+  <g text-anchor="middle" font-family="'Segoe UI', Roboto, Helvetica, sans-serif">
+    <text x="256" y="85" font-size="58" fill="#FFFFFF" font-weight="900" letter-spacing="-1">MERCADITO</text>
+    <rect x="156" y="105" width="200" height="45" rx="22" fill="url(#accentGrad)"/>
+    <text x="256" y="138" font-size="28" fill="#FFFFFF" font-weight="800">DE DINERO</text>
+  </g>
+
+  <!-- Partículas de brillo -->
+  <circle cx="450" cy="50" r="6" fill="#FFFFFF" opacity="0.8"/>
+  <circle cx="50" cy="450" r="8" fill="#FFFFFF" opacity="0.5"/>
+  <path d="M420 120 L430 130 M430 120 L420 130" stroke="white" stroke-width="4" stroke-linecap="round" opacity="0.7"/>
+</svg>

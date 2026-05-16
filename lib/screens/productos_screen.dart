@@ -283,6 +283,9 @@ class _ProductosScreenState extends State<ProductosScreen> {
                 final p = controller.productos[index];
 
                 return ListTile(
+                  leading: const CircleAvatar(
+                    child: Icon(Icons.inventory_2_rounded),
+                  ),
                   title: Text(p.nombre),
                   subtitle: Text("₡${p.precio}\nQR: ${p.codigoQr}"),
                   onTap: () => _mostrarQrProducto(context, p),
@@ -296,11 +299,18 @@ class _ProductosScreenState extends State<ProductosScreen> {
               },
             ),
       floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
+        onPressed: () async {
+          await Navigator.push(
             context,
             MaterialPageRoute(builder: (_) => const ProductoFormScreen()),
           );
+
+          if (mounted) {
+            Provider.of<ProductoController>(
+              context,
+              listen: false,
+            ).cargarProductos();
+          }
         },
         child: const Icon(Icons.add),
       ),
