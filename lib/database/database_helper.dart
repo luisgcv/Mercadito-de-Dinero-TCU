@@ -13,6 +13,8 @@ class DatabaseHelper {
   // Singleton (una sola instancia de la DB)
   static final DatabaseHelper instance = DatabaseHelper._init();
 
+  static const int _databaseVersion = 2;
+
   static Database? _database;
 
   DatabaseHelper._init();
@@ -29,7 +31,12 @@ class DatabaseHelper {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
 
-    return await openDatabase(path, version: 1, onCreate: _createDB);
+    return await openDatabase(
+      path,
+      version: _databaseVersion,
+      onCreate: _createDB,
+      onUpgrade: _onUpgrade,
+    );
   }
 
   // Crear tablas
@@ -39,9 +46,16 @@ class DatabaseHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nombre TEXT NOT NULL,
         precio REAL NOT NULL,
-        codigo_qr TEXT UNIQUE NOT NULL
+        codigo_qr TEXT UNIQUE NOT NULL,
+        image_path TEXT
       )
     ''');
+  }
+
+  Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE productos ADD COLUMN image_path TEXT');
+    }
   }
 
   // ---------------- CRUD PRODUCTOS ----------------
@@ -103,6 +117,13 @@ class DatabaseHelper {
     final db = await instance.database;
 
     return await db.delete('productos', where: 'id = ?', whereArgs: [id]);
+  }
+
+  // ELIMINAR todos los productos
+  Future<int> deleteAllProductos() async {
+    final db = await instance.database;
+
+    return await db.delete('productos');
   }
 
   Future<List<String>> obtenerNombresTablasUsuario() async {

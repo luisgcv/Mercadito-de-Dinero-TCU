@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:pdf/pdf.dart';
@@ -6,17 +7,22 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:printing/printing.dart';
 
 import '../models/producto.dart';
+import 'image_storage_service.dart';
 
 class PdfExportService {
+  final ImageStorageService _imageStorage = ImageStorageService();
+
   Future<void> exportarCatalogoPdf(List<Producto> productos) async {
     final pdf = pw.Document();
 
-    // Generar datos del PDF (nombre, precio, QR)
+    // Generar datos del PDF (imagen, nombre, precio, QR)
     final productosConQr = <Map<String, dynamic>>[];
 
     for (final producto in productos) {
       final qrImage = await _generarQrImage(producto.codigoQr);
+      final imagenProducto = await _generarImagenProducto(producto.imagePath);
       productosConQr.add({
+        'imagen': imagenProducto,
         'nombre': producto.nombre,
         'precio': producto.precio,
         'qr': qrImage,
@@ -65,15 +71,24 @@ class PdfExportService {
             pw.Table(
               border: pw.TableBorder.all(color: PdfColors.grey300),
               columnWidths: {
-                0: const pw.FlexColumnWidth(3),
-                1: const pw.FlexColumnWidth(1.5),
-                2: const pw.FlexColumnWidth(2),
+                0: const pw.FlexColumnWidth(1.5),
+                1: const pw.FlexColumnWidth(3),
+                2: const pw.FlexColumnWidth(1.5),
+                3: const pw.FlexColumnWidth(2),
               },
               children: [
                 // Encabezado de tabla
                 pw.TableRow(
                   decoration: pw.BoxDecoration(color: PdfColors.grey300),
                   children: [
+                    pw.Padding(
+                      padding: const pw.EdgeInsets.all(8),
+                      child: pw.Text(
+                        'Imagen',
+                        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                        textAlign: pw.TextAlign.center,
+                      ),
+                    ),
                     pw.Padding(
                       padding: const pw.EdgeInsets.all(8),
                       child: pw.Text(
@@ -103,6 +118,37 @@ class PdfExportService {
                 ...productosConQr.map(
                   (item) => pw.TableRow(
                     children: [
+                      pw.Padding(
+                        padding: const pw.EdgeInsets.all(8),
+                        child: item['imagen'] == null
+                            ? pw.Container(
+                                height: 60,
+                                alignment: pw.Alignment.center,
+                                child: pw.Text(
+                                  'Sin imagen',
+                                  style: const pw.TextStyle(fontSize: 9),
+                                  textAlign: pw.TextAlign.center,
+                                ),
+                              )
+                            : pw.Center(
+                                child: pw.Container(
+                                  padding: const pw.EdgeInsets.all(4),
+                                  decoration: pw.BoxDecoration(
+                                    border: pw.Border.all(
+                                      color: PdfColors.grey700,
+                                      width: 0.8,
+                                    ),
+                                    borderRadius: pw.BorderRadius.circular(4),
+                                  ),
+                                  child: pw.Image(
+                                    item['imagen'] as pw.ImageProvider,
+                                    width: 60,
+                                    height: 60,
+                                    fit: pw.BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                      ),
                       pw.Padding(
                         padding: const pw.EdgeInsets.all(8),
                         child: pw.Text(
@@ -186,5 +232,22 @@ class PdfExportService {
     }
 
     return pw.MemoryImage(byteData.buffer.asUint8List());
+  }
+
+  Future<pw.ImageProvider?> _generarImagenProducto(String? relativePath) async {
+    if (relativePath == null || relativePath.isEmpty) {
+      return null;
+    }
+
+    final exists = await _imageStorage.exists(relativePath);
+    if (!exists) {
+      return null;
+    }
+
+    final absolutePath = await _imageStorage.resolveAbsolutePath(relativePath);
+    final file = File(absolutePath);
+    final bytes = await file.readAsBytes();
+
+    return pw.MemoryImage(bytes);
   }
 }

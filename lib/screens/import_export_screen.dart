@@ -12,58 +12,58 @@ class ImportExportScreen extends StatefulWidget {
 }
 
 class _ImportExportScreenState extends State<ImportExportScreen> {
-  Future<void> _exportarJson(BuildContext context) async {
+  Future<void> _exportarZip(BuildContext context) async {
     final controller = context.read<ImportExportController>();
 
     try {
-      final ruta = await controller.exportarJsonCompleto();
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Backup JSON creado en: $ruta')));
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error al exportar JSON: $e')));
-    }
-  }
-
-  Future<void> _compartirJson(BuildContext context) async {
-    final controller = context.read<ImportExportController>();
-
-    try {
-      final ruta = await controller.compartirJsonCompleto();
+      final ruta = await controller.exportarZipCompleto();
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Se abrió el menú para compartir: $ruta')),
+        SnackBar(content: Text('Backup ZIP creado en: $ruta')),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error al compartir JSON: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al exportar ZIP: $e')),
+      );
     }
   }
 
-  Future<void> _importarJson(BuildContext context) async {
+  Future<void> _compartirZip(BuildContext context) async {
     final controller = context.read<ImportExportController>();
 
     try {
-      final ruta = await controller.importarJsonCompleto();
+      final ruta = await controller.compartirZipCompleto();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Se abrió el menú para compartir ZIP: $ruta')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al compartir ZIP: $e')),
+      );
+    }
+  }
+
+  Future<void> _importarZip(BuildContext context) async {
+    final controller = context.read<ImportExportController>();
+
+    try {
+      final ruta = await controller.importarZipCompleto();
       if (!mounted) return;
 
       await context.read<ProductoController>().cargarProductos();
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Backup JSON importado desde: $ruta')),
+        SnackBar(content: Text('Backup ZIP importado desde: $ruta')),
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error al importar JSON: $e')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al importar ZIP: $e')),
+      );
     }
   }
 
@@ -79,26 +79,26 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Gestiona respaldos de la base de datos en JSON',
+              'Gestiona respaldos completos de la base de datos en ZIP',
               style: TextStyle(fontSize: 16),
             ),
             const SizedBox(height: 24),
             ElevatedButton.icon(
-              onPressed: isLoading ? null : () => _importarJson(context),
-              icon: const Icon(Icons.upload_file),
-              label: const Text('Importar JSON'),
+              onPressed: isLoading ? null : () => _importarZip(context),
+              icon: const Icon(Icons.archive),
+              label: const Text('Importar ZIP completo'),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
-              onPressed: isLoading ? null : () => _exportarJson(context),
-              icon: const Icon(Icons.download_for_offline),
-              label: const Text('Exportar JSON'),
+              onPressed: isLoading ? null : () => _exportarZip(context),
+              icon: const Icon(Icons.save_alt),
+              label: const Text('Exportar ZIP completo'),
             ),
             const SizedBox(height: 12),
             ElevatedButton.icon(
-              onPressed: isLoading ? null : () => _compartirJson(context),
-              icon: const Icon(Icons.share),
-              label: const Text('Compartir JSON'),
+              onPressed: isLoading ? null : () => _compartirZip(context),
+              icon: const Icon(Icons.share_outlined),
+              label: const Text('Compartir ZIP completo'),
             ),
             if (isLoading) ...[
               const SizedBox(height: 24),

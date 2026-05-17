@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../controllers/producto_controller.dart';
@@ -16,7 +18,14 @@ class _ProductoFormScreenState extends State<ProductoFormScreen> {
   final TextEditingController nombreController = TextEditingController();
   final TextEditingController precioController = TextEditingController();
 
-  void guardarProducto() {
+  @override
+  void dispose() {
+    nombreController.dispose();
+    precioController.dispose();
+    super.dispose();
+  }
+
+  Future<void> guardarProducto() async {
     if (!_formKey.currentState!.validate()) return;
 
     final nombre = nombreController.text;
@@ -31,8 +40,17 @@ class _ProductoFormScreenState extends State<ProductoFormScreen> {
       codigoQr: codigoQR,
     );
 
-    Provider.of<ProductoController>(context, listen: false)
-        .agregarProducto(producto);
+    final controller = Provider.of<ProductoController>(context, listen: false);
+    final guardado = await controller.agregarProducto(producto);
+
+    if (!mounted) return;
+
+    if (!guardado) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(controller.errorMessage ?? 'No se pudo guardar')),
+      );
+      return;
+    }
 
     Navigator.pop(context); // volver a la lista
   }
@@ -45,30 +63,76 @@ class _ProductoFormScreenState extends State<ProductoFormScreen> {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
-        child: Form(
-          key: _formKey,
-          child: Column(
-            children: [
-              TextFormField(
-                controller: nombreController,
-                decoration: const InputDecoration(labelText: "Nombre"),
-                validator: (value) =>
-                    value!.isEmpty ? "Ingrese un nombre" : null,
+        child: Consumer<ProductoController>(
+          builder: (context, controller, _) {
+            return Form(
+              key: _formKey,
+              child: SingleChildScrollView(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    TextFormField(
+                      controller: nombreController,
+                      decoration: const InputDecoration(labelText: "Nombre"),
+                      validator: (value) =>
+                          value!.isEmpty ? "Ingrese un nombre" : null,
+                    ),
+                    TextFormField(
+                      controller: precioController,
+                      decoration: const InputDecoration(labelText: "Precio"),
+                      keyboardType: TextInputType.number,
+                      validator: (value) =>
+                          value!.isEmpty ? "Ingrese un precio" : null,
+                    ),
+                    const SizedBox(height: 16),
+                    InkWell(
+                      onTap: () => controller.seleccionarImagen(),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        height: 180,
+                        decoration: BoxDecoration(
+                          color: Colors.grey.shade100,
+                          border: Border.all(color: Colors.grey.shade400),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: controller.tieneImagenSeleccionada
+                            ? ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.file(
+                                  File(controller.imagenSeleccionadaTemporalPath!),
+                                  fit: BoxFit.cover,
+                                  width: double.infinity,
+                                  height: 180,
+                                ),
+                              )
+                            : const Center(
+                                child: Column(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(Icons.photo_library_outlined, size: 48),
+                                    SizedBox(height: 8),
+                                    Text('Tocar para elegir imagen'),
+                                  ],
+                                ),
+                              ),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+                    if (controller.tieneImagenSeleccionada)
+                      TextButton(
+                        onPressed: controller.limpiarImagenSeleccionada,
+                        child: const Text('Quitar imagen'),
+                      ),
+                    const SizedBox(height: 20),
+                    ElevatedButton(
+                      onPressed: guardarProducto,
+                      child: const Text("Guardar"),
+                    ),
+                  ],
+                ),
               ),
-              TextFormField(
-                controller: precioController,
-                decoration: const InputDecoration(labelText: "Precio"),
-                keyboardType: TextInputType.number,
-                validator: (value) =>
-                    value!.isEmpty ? "Ingrese un precio" : null,
-              ),
-              const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: guardarProducto,
-                child: const Text("Guardar"),
-              )
-            ],
-          ),
+            );
+          },
         ),
       ),
     );

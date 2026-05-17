@@ -20,6 +20,59 @@ class ProductosScreen extends StatefulWidget {
 }
 
 class _ProductosScreenState extends State<ProductosScreen> {
+  Future<void> _confirmarEliminarTodosLosProductos() async {
+    final controller = Provider.of<ProductoController>(context, listen: false);
+
+    if (controller.productos.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No hay productos para eliminar')),
+      );
+      return;
+    }
+
+    final confirmar = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Eliminar todos los productos'),
+          content: const Text(
+            'Esta acción eliminará todos los productos e imágenes asociadas. ¿Deseas continuar?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancelar'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Eliminar todo'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmar != true) return;
+
+    final eliminado = await controller.eliminarTodosLosProductos();
+    if (!mounted) return;
+
+    if (!eliminado) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            controller.errorMessage ?? 'No se pudieron eliminar los productos',
+          ),
+        ),
+      );
+      return;
+    }
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Todos los productos fueron eliminados')),
+    );
+  }
+
   Future<void> _confirmarEliminarProducto(Producto producto) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -43,15 +96,50 @@ class _ProductosScreenState extends State<ProductosScreen> {
 
     if (confirmar != true) return;
 
-    await Provider.of<ProductoController>(
+    final eliminado = await Provider.of<ProductoController>(
       context,
       listen: false,
-    ).eliminarProducto(producto.id!);
+    ).eliminarProducto(producto);
+
+    if (!eliminado) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('No se pudo eliminar el producto')),
+      );
+      return;
+    }
 
     if (!mounted) return;
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(SnackBar(content: Text('${producto.nombre} eliminado')));
+  }
+
+  Widget _buildLeadingImage(Producto producto) {
+    if (!producto.hasImage) {
+      return const CircleAvatar(
+        child: Icon(Icons.inventory_2_rounded),
+      );
+    }
+
+    return FutureBuilder<String?>(
+      future: Provider.of<ProductoController>(context, listen: false)
+          .obtenerRutaImagenSiExiste(producto.imagePath),
+      builder: (context, snapshot) {
+        final rutaAbsoluta = snapshot.data;
+
+        if (rutaAbsoluta == null || rutaAbsoluta.isEmpty) {
+          return const CircleAvatar(
+            child: Icon(Icons.inventory_2_rounded),
+          );
+        }
+
+        return CircleAvatar(
+          backgroundColor: Colors.grey.shade200,
+          backgroundImage: FileImage(File(rutaAbsoluta)),
+        );
+      },
+    );
   }
 
   Future<void> _exportarQrProducto(Producto producto) async {
@@ -269,6 +357,11 @@ class _ProductosScreenState extends State<ProductosScreen> {
         title: const Text("Productos"),
         actions: [
           IconButton(
+            icon: const Icon(Icons.delete_sweep),
+            tooltip: 'Eliminar todos los productos',
+            onPressed: _confirmarEliminarTodosLosProductos,
+          ),
+          IconButton(
             icon: const Icon(Icons.picture_as_pdf),
             tooltip: "Exportar catálogo PDF",
             onPressed: _exportarCatalogoPdf,
@@ -283,9 +376,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
                 final p = controller.productos[index];
 
                 return ListTile(
-                  leading: const CircleAvatar(
-                    child: Icon(Icons.inventory_2_rounded),
-                  ),
+                  leading: _buildLeadingImage(p),
                   title: Text(p.nombre),
                   subtitle: Text("₡${p.precio}\nQR: ${p.codigoQr}"),
                   onTap: () => _mostrarQrProducto(context, p),

@@ -8,36 +8,36 @@ class ImportExportController extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
-  Future<String> importarJsonCompleto() async {
+  Future<String> exportarZipCompleto() async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      return await _service.importarJsonCompleto();
+      return await _service.exportarZipCompleto();
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<String> exportarJsonCompleto() async {
+  Future<String> compartirZipCompleto() async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      return await _service.exportarJsonCompleto();
+      return await _service.compartirZipCompleto();
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  Future<String> compartirJsonCompleto() async {
+  Future<String> importarZipCompleto() async {
     _isLoading = true;
     notifyListeners();
 
     try {
-      return await _service.compartirJsonCompleto();
+      return await _service.importarZipCompleto();
     } finally {
       _isLoading = false;
       notifyListeners();

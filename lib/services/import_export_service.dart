@@ -1,73 +1,31 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
-import 'dart:ui' as ui;
 
+import 'package:archive/archive.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
-import 'package:qr_flutter/qr_flutter.dart';
 import 'package:share_plus/share_plus.dart';
 
 import '../database/database_helper.dart';
+import 'image_storage_service.dart';
 
 class ImportExportService {
   final DatabaseHelper _db = DatabaseHelper.instance;
+  final ImageStorageService _imageStorage = ImageStorageService();
 
-  Future<String> compartirJsonCompleto() async {
-    final contenido = await _crearContenidoJsonCompleto();
-    final bytes = Uint8List.fromList(utf8.encode(contenido));
+  Future<String> exportarZipCompleto() async {
+    final archivoZip = await _crearArchivoZipTemporal();
     final nombreArchivo =
-        'mercadito_backup_${DateTime.now().millisecondsSinceEpoch}.json';
-    final archivo = await _crearArchivoTemporal(nombreArchivo, bytes);
-
-    await Share.shareXFiles([
-      XFile(archivo.path, mimeType: 'application/json', name: nombreArchivo),
-    ], text: 'Backup JSON de Mercadito');
-
-    return archivo.path;
-  }
-
-  Future<String> importarJsonCompleto() async {
-    final resultado = await FilePicker.platform.pickFiles(
-      dialogTitle: 'Selecciona backup JSON',
-      type: FileType.custom,
-      allowedExtensions: ['json'],
-      withData: false,
-    );
-
-    if (resultado == null || resultado.files.isEmpty) {
-      throw Exception('Importacion cancelada por el usuario');
-    }
-
-    final archivo = resultado.files.single;
-    final ruta = _obtenerRutaArchivoSeleccionado(archivo);
-
-    if (ruta == null || ruta.isEmpty) {
-      throw Exception('No se pudo obtener la ruta del archivo seleccionado');
-    }
-
-    final contenido = await File(ruta).readAsString();
-    final dynamic data = jsonDecode(contenido);
-    final tablas = _extraerTablasDesdeJson(data);
-
-    await _db.reemplazarDatosDesdeJsonCompleto(tablas);
-
-    return ruta;
-  }
-
-  Future<String> exportarJsonCompleto() async {
-    final contenido = await _crearContenidoJsonCompleto();
-    final bytes = Uint8List.fromList(utf8.encode(contenido));
-    final nombreArchivo =
-        'mercadito_backup_${DateTime.now().millisecondsSinceEpoch}.json';
+        'mercadito_backup_${DateTime.now().millisecondsSinceEpoch}.zip';
+    final bytes = await archivoZip.readAsBytes();
 
     if (Platform.isAndroid || Platform.isIOS) {
       final rutaMovil = await FilePicker.platform.saveFile(
-        dialogTitle: 'Guardar backup JSON como',
+        dialogTitle: 'Guardar backup ZIP como',
         fileName: nombreArchivo,
         type: FileType.custom,
-        allowedExtensions: ['json'],
+        allowedExtensions: ['zip'],
         bytes: bytes,
       );
 
@@ -79,86 +37,177 @@ class ImportExportService {
     }
 
     final rutaArchivo = await FilePicker.platform.saveFile(
-      dialogTitle: 'Guardar backup JSON como',
+      dialogTitle: 'Guardar backup ZIP como',
       fileName: nombreArchivo,
       type: FileType.custom,
-      allowedExtensions: ['json'],
+      allowedExtensions: ['zip'],
     );
 
     if (rutaArchivo == null || rutaArchivo.isEmpty) {
       throw Exception('Exportacion cancelada por el usuario');
     }
 
-    final archivo = await _guardarEnRuta(rutaArchivo, bytes);
+    final archivo = await _guardarArchivoEnRuta(
+      rutaArchivo,
+      bytes,
+      extension: '.zip',
+    );
     return archivo.path;
   }
 
-  Future<String> _crearContenidoJsonCompleto() async {
+  Future<String> compartirZipCompleto() async {
+    final archivoZip = await _crearArchivoZipTemporal();
+
+    await Share.shareXFiles([
+      XFile(
+        archivoZip.path,
+        mimeType: 'application/zip',
+        name: p.basename(archivoZip.path),
+      ),
+    ], text: 'Backup ZIP de Mercadito');
+
+    return archivoZip.path;
+  }
+
+  Future<String> importarZipCompleto() async {
+    final resultado = await FilePicker.platform.pickFiles(
+      dialogTitle: 'Selecciona backup ZIP',
+      type: FileType.custom,
+      allowedExtensions: ['zip'],
+      withData: false,
+    );
+
+    if (resultado == null || resultado.files.isEmpty) {
+      throw Exception('Importacion cancelada por el usuario');
+    }
+
+    final archivoSeleccionado = resultado.files.single;
+    final rutaZip = _obtenerRutaArchivoSeleccionado(archivoSeleccionado);
+
+    if (rutaZip == null || rutaZip.isEmpty) {
+      throw Exception('No se pudo obtener la ruta del archivo ZIP seleccionado');
+    }
+
+    final contenidoZip = await File(rutaZip).readAsBytes();
+    final archive = ZipDecoder().decodeBytes(contenidoZip, verify: true);
+    final directorioTemporal =
+        await Directory.systemTemp.createTemp('mercadito_zip_import_');
+
+    try {
+      _extraerArchivoZip(archive, directorioTemporal);
+
+      final backupJsonFile = File(p.join(directorioTemporal.path, 'backup.json'));
+      if (!await backupJsonFile.exists()) {
+        throw Exception('El ZIP no contiene backup.json');
+      }
+
+      final contenido = await backupJsonFile.readAsString();
+      final dynamic data = jsonDecode(contenido);
+      final tablas = _extraerTablasDesdeJson(data);
+      final imagenesParaCopiar = _obtenerReferenciasImagenesDesdeTablas(tablas)
+          .map(_imageStorage.normalizeRelativePath)
+          .toSet()
+          .toList();
+
+      for (final relativa in imagenesParaCopiar) {
+        final archivoTemporal = File(p.join(directorioTemporal.path, relativa));
+        if (!await archivoTemporal.exists()) {
+          throw Exception('Falta la imagen requerida en el ZIP: $relativa');
+        }
+      }
+
+      final respaldoActual = await _db.obtenerDatosDeTodasLasTablas();
+      final copiados = <String>[];
+
+      try {
+        for (final relativa in imagenesParaCopiar) {
+          final archivoTemporal = File(p.join(directorioTemporal.path, relativa));
+
+          await _imageStorage.copyFileToRelativePath(
+            sourcePath: archivoTemporal.path,
+            relativePath: relativa,
+            overwrite: true,
+          );
+
+          copiados.add(relativa);
+        }
+
+        await _db.reemplazarDatosDesdeJsonCompleto(tablas);
+      } catch (e) {
+        await _db.reemplazarDatosDesdeJsonCompleto(respaldoActual);
+
+        for (final relativa in copiados) {
+          try {
+            await _imageStorage.deleteImage(relativa);
+          } catch (_) {}
+        }
+
+        rethrow;
+      }
+
+      return rutaZip;
+    } finally {
+      try {
+        await directorioTemporal.delete(recursive: true);
+      } catch (_) {}
+    }
+  }
+
+  Future<String> _crearContenidoBackupZip() async {
     final tablas = await _db.obtenerDatosDeTodasLasTablas();
-    final productos = tablas['productos'] ?? <Map<String, dynamic>>[];
 
     final payload = {
       'app': 'mercadito',
-      'version': 1,
+      'version': 2,
       'exported_at': DateTime.now().toIso8601String(),
-      'tables': {
-        ...tablas,
-        'productos': await _agregarQrBase64AProductos(productos),
-      },
+      'tables': tablas,
     };
 
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
 
-  Future<List<Map<String, dynamic>>> _agregarQrBase64AProductos(
-    List<Map<String, dynamic>> productos,
-  ) async {
-    final salida = <Map<String, dynamic>>[];
+  Future<File> _crearArchivoZipTemporal() async {
+    final directorio = await Directory.systemTemp.createTemp('mercadito_zip_');
+    final contenidoJson = await _crearContenidoBackupZip();
+    final archive = Archive();
 
-    for (final producto in productos) {
-      final copia = Map<String, dynamic>.from(producto);
-      final codigoQr = copia['codigo_qr']?.toString() ?? '';
+    archive.addFile(ArchiveFile.string('backup.json', contenidoJson));
 
-      if (codigoQr.isEmpty) {
-        copia['qr_image_base64'] = null;
-        salida.add(copia);
+    final tablas = await _db.obtenerDatosDeTodasLasTablas();
+    final referencias = _obtenerReferenciasImagenesDesdeTablas(tablas).toSet();
+
+    for (final referencia in referencias) {
+      final relativa = _imageStorage.normalizeRelativePath(referencia);
+      final absolutePath = await _imageStorage.resolveAbsolutePath(relativa);
+      final file = File(absolutePath);
+
+      if (!await file.exists()) {
         continue;
       }
 
-      final qrBytes = await _generarQrPng(codigoQr);
-      copia['qr_image_base64'] = base64Encode(qrBytes);
-      salida.add(copia);
+      final bytes = await file.readAsBytes();
+      archive.addFile(ArchiveFile(relativa, bytes.length, bytes));
     }
 
-    return salida;
-  }
-
-  Future<Uint8List> _generarQrPng(String data) async {
-    final painter = QrPainter(
-      data: data,
-      version: QrVersions.auto,
-      gapless: true,
-      color: Colors.black,
-      emptyColor: Colors.white,
-    );
-
-    final byteData = await painter.toImageData(
-      1024,
-      format: ui.ImageByteFormat.png,
-    );
-
-    if (byteData == null) {
-      throw Exception('No se pudo generar la imagen QR');
+    final encoded = ZipEncoder().encode(archive);
+    if (encoded == null) {
+      throw Exception('No se pudo generar el archivo ZIP');
     }
 
-    return byteData.buffer.asUint8List();
+    final archivoZip = File(p.join(directorio.path, 'backup.zip'));
+    await archivoZip.writeAsBytes(Uint8List.fromList(encoded), flush: true);
+    return archivoZip;
   }
 
-  Future<File> _guardarEnRuta(String rutaArchivo, Uint8List bytes) async {
+  Future<File> _guardarArchivoEnRuta(
+    String rutaArchivo,
+    Uint8List bytes, {
+    String extension = '.zip',
+  }) async {
     final rutaNormalizada = _normalizarRutaArchivo(rutaArchivo);
-    final rutaFinal = rutaNormalizada.toLowerCase().endsWith('.json')
+    final rutaFinal = rutaNormalizada.toLowerCase().endsWith(extension)
         ? rutaNormalizada
-        : '$rutaNormalizada.json';
+        : '$rutaNormalizada$extension';
 
     final rutaAbsoluta = p.normalize(rutaFinal);
     final archivo = File(rutaAbsoluta);
@@ -170,26 +219,13 @@ class ImportExportService {
 
     await archivo.writeAsBytes(bytes, flush: true);
 
-    final existe = await archivo.exists();
-    final tamano = existe ? await archivo.length() : 0;
-
-    if (!existe || tamano == 0) {
+    if (!await archivo.exists() || await archivo.length() == 0) {
       throw FileSystemException(
         'El archivo no se guardo correctamente',
         rutaAbsoluta,
       );
     }
 
-    return archivo;
-  }
-
-  Future<File> _crearArchivoTemporal(
-    String nombreArchivo,
-    Uint8List bytes,
-  ) async {
-    final directorio = await Directory.systemTemp.createTemp('mercadito_');
-    final archivo = File(p.join(directorio.path, nombreArchivo));
-    await archivo.writeAsBytes(bytes, flush: true);
     return archivo;
   }
 
@@ -208,7 +244,7 @@ class ImportExportService {
     if (archivo.bytes != null && archivo.bytes!.isNotEmpty) {
       final tempDir = Directory.systemTemp;
       final nombre = archivo.name.isEmpty
-          ? 'import_backup_${DateTime.now().millisecondsSinceEpoch}.json'
+          ? 'import_backup_${DateTime.now().millisecondsSinceEpoch}.zip'
           : archivo.name;
       final temporal = File(p.join(tempDir.path, nombre));
       temporal.writeAsBytesSync(archivo.bytes!, flush: true);
@@ -216,6 +252,34 @@ class ImportExportService {
     }
 
     return null;
+  }
+
+  Iterable<String> _obtenerReferenciasImagenesDesdeTablas(
+    Map<String, List<Map<String, dynamic>>> tablas,
+  ) sync* {
+    for (final registros in tablas.values) {
+      for (final registro in registros) {
+        final referencia = registro['image_path']?.toString();
+        if (referencia != null && referencia.isNotEmpty) {
+          yield referencia;
+        }
+      }
+    }
+  }
+
+  void _extraerArchivoZip(Archive archive, Directory destino) {
+    for (final entry in archive) {
+      final nombre = p.normalize(entry.name);
+      final salida = p.join(destino.path, nombre);
+
+      if (entry.isFile) {
+        final archivo = File(salida);
+        archivo.parent.createSync(recursive: true);
+        archivo.writeAsBytesSync(entry.content as List<int>, flush: true);
+      } else {
+        Directory(salida).createSync(recursive: true);
+      }
+    }
   }
 
   Map<String, List<Map<String, dynamic>>> _extraerTablasDesdeJson(

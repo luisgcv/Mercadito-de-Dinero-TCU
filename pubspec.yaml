@@ -66,6 +66,9 @@ dependencies:
   pdf: ^3.10.0
   printing: ^5.10.0
 
+  # ZIP backups
+  archive: ^3.6.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
