@@ -2,6 +2,12 @@ import 'package:flutter/material.dart';
 
 import '../theme/app_brand.dart';
 
+/// Logo de la app dibujado con widgets (no usa imágenes): un círculo con un
+/// carrito, una moneda y un cuadrado decorativo. Opcionalmente muestra el
+/// nombre y el lema debajo.
+///
+/// Se usa en [SplashScreen] y [HomeScreen]. El ícono del lanzador (el que se
+/// ve en el teléfono) es otro: `assets/icon/logo_app2.png`.
 class BrandLogo extends StatelessWidget {
   const BrandLogo({
     super.key,
@@ -10,8 +16,12 @@ class BrandLogo extends StatelessWidget {
     this.textAlign = TextAlign.center,
   });
 
+  /// Diámetro del círculo del logo en píxeles lógicos.
   final double size;
+
+  /// Si es `true`, muestra "Mercadito de Dinero" y el lema debajo.
   final bool showText;
+  /// Alineación de los textos.
   final TextAlign textAlign;
 
   @override
@@ -105,6 +115,7 @@ class BrandLogo extends StatelessWidget {
   }
 }
 
+/// Moneda de colones ("C") que decora el logo.
 class _Coin extends StatelessWidget {
   const _Coin({required this.size});
 

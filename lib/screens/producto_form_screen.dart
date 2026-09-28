@@ -5,6 +5,15 @@ import 'package:provider/provider.dart';
 import '../controllers/producto_controller.dart';
 import '../models/producto.dart';
 
+/// Formulario para crear un producto nuevo.
+///
+/// Pide nombre, precio e (opcionalmente) una imagen. El código QR se genera
+/// automáticamente al guardar con el formato `PROD_<milisegundos>`, por lo
+/// que es único.
+///
+/// Nota: hoy solo permite **crear**. Para agregar la edición se puede
+/// reutilizar esta pantalla recibiendo un [Producto] opcional y llamando a
+/// [ProductoController.actualizarProducto].
 class ProductoFormScreen extends StatefulWidget {
   const ProductoFormScreen({super.key});
 
@@ -25,6 +34,8 @@ class _ProductoFormScreenState extends State<ProductoFormScreen> {
     super.dispose();
   }
 
+  /// Valida el formulario, crea el [Producto] con un QR nuevo y lo guarda.
+  /// Si todo sale bien, vuelve a la lista de productos.
   Future<void> guardarProducto() async {
     if (!_formKey.currentState!.validate()) return;
 

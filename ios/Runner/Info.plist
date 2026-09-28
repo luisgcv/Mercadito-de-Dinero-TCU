@@ -66,5 +66,22 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>UISupportedInterfaceOrientations~ipad</key>
+	<array>
+		<string>UIInterfaceOrientationPortrait</string>
+		<string>UIInterfaceOrientationPortraitUpsideDown</string>
+		<string>UIInterfaceOrientationLandscapeLeft</string>
+		<string>UIInterfaceOrientationLandscapeRight</string>
+	</array>
+
+	<key>NSCameraUsageDescription</key>
+	<string>La aplicación necesita acceso a la cámara para escanear códigos QR y tomar fotografías de productos.</string>
+
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>La aplicación necesita acceso a la galería para seleccionar imágenes de productos.</string>
+
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>La aplicación necesita guardar imágenes y archivos generados por la aplicación.</string>
+
 </dict>
 </plist>

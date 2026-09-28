@@ -12,6 +12,17 @@ import '../controllers/producto_controller.dart';
 import '../models/producto.dart';
 import '../services/pdf_export_service.dart';
 
+/// Pantalla de administración del catálogo de productos.
+///
+/// Funciones:
+/// - Lista los productos con su imagen, precio y código QR.
+/// - Tocar un producto muestra su QR en grande y permite exportarlo a PNG.
+/// - Botón `+`: abre [ProductoFormScreen] para crear un producto.
+/// - Ícono de basurero en cada fila: elimina el producto (con confirmación).
+/// - Barra superior: eliminar todos los productos y exportar el catálogo a
+///   PDF ([PdfExportService]).
+///
+/// Los productos se cargan al entrar en la pantalla ([initState]).
 class ProductosScreen extends StatefulWidget {
   const ProductosScreen({super.key});
 
@@ -20,6 +31,7 @@ class ProductosScreen extends StatefulWidget {
 }
 
 class _ProductosScreenState extends State<ProductosScreen> {
+  /// Pide confirmación y elimina todos los productos y sus imágenes.
   Future<void> _confirmarEliminarTodosLosProductos() async {
     final controller = Provider.of<ProductoController>(context, listen: false);
 
@@ -73,6 +85,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
     );
   }
 
+  /// Pide confirmación y elimina [producto] (junto con su imagen).
   Future<void> _confirmarEliminarProducto(Producto producto) async {
     final confirmar = await showDialog<bool>(
       context: context,
@@ -115,6 +128,8 @@ class _ProductosScreenState extends State<ProductosScreen> {
     ).showSnackBar(SnackBar(content: Text('${producto.nombre} eliminado')));
   }
 
+  /// Miniatura circular del producto. Si no tiene imagen o el archivo ya no
+  /// existe, muestra un ícono genérico.
   Widget _buildLeadingImage(Producto producto) {
     if (!producto.hasImage) {
       return const CircleAvatar(
@@ -142,6 +157,9 @@ class _ProductosScreenState extends State<ProductosScreen> {
     );
   }
 
+  /// Genera el QR de [producto] como PNG de 1024×1024 y lo guarda donde el
+  /// usuario elija. En móvil los bytes se entregan a `file_picker`; en
+  /// escritorio se escriben con [_guardarQrEnRuta].
   Future<void> _exportarQrProducto(Producto producto) async {
     try {
       final String nombreArchivo =
@@ -230,6 +248,8 @@ class _ProductosScreenState extends State<ProductosScreen> {
     }
   }
 
+  /// Escribe el PNG en [rutaArchivo] (agregando `.png` si falta) y verifica
+  /// que el archivo se haya creado correctamente.
   Future<File> _guardarQrEnRuta(String rutaArchivo, Uint8List bytes) async {
     final rutaNormalizada = _normalizarRutaArchivo(rutaArchivo);
     final rutaFinal = rutaNormalizada.toLowerCase().endsWith('.png')
@@ -259,6 +279,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
     return archivo;
   }
 
+  /// Convierte rutas `file://...` en rutas normales del sistema.
   String _normalizarRutaArchivo(String rutaArchivo) {
     if (rutaArchivo.startsWith('file://')) {
       return Uri.parse(rutaArchivo).toFilePath();
@@ -266,6 +287,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
     return rutaArchivo;
   }
 
+  /// Convierte [input] en un nombre de archivo seguro.
   String _limpiarNombreArchivo(String input) {
     return input
         .trim()
@@ -274,6 +296,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
         .toLowerCase();
   }
 
+  /// Muestra un diálogo con el QR de [producto], su código y su precio.
   void _mostrarQrProducto(BuildContext context, Producto producto) {
     showDialog<void>(
       context: context,
@@ -310,6 +333,7 @@ class _ProductosScreenState extends State<ProductosScreen> {
     );
   }
 
+  /// Genera el catálogo PDF con todos los productos cargados.
   Future<void> _exportarCatalogoPdf() async {
     try {
       final controller = Provider.of<ProductoController>(

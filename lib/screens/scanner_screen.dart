@@ -6,6 +6,15 @@ import '../controllers/carrito_controller.dart';
 import '../controllers/producto_controller.dart';
 import '../services/audio_service.dart';
 
+/// Escáner de códigos QR con la cámara (paquete `mobile_scanner`).
+///
+/// Al detectar un código busca el producto con ese `codigoQr`:
+/// - Si existe: lo agrega al carrito, reproduce el sonido de éxito y vuelve
+///   a [CarritoScreen].
+/// - Si no existe: muestra "Producto no encontrado" y sigue escaneando.
+///
+/// Requiere permiso de cámara (declarado en `AndroidManifest.xml` e
+/// `Info.plist`).
 class ScannerScreen extends StatefulWidget {
   const ScannerScreen({super.key});
 
@@ -14,9 +23,12 @@ class ScannerScreen extends StatefulWidget {
 }
 
 class _ScannerScreenState extends State<ScannerScreen> {
+  /// Controlador de la cámara. `noDuplicates` evita leer el mismo código
+  /// varias veces seguidas.
   final MobileScannerController _scannerController = MobileScannerController(
     detectionSpeed: DetectionSpeed.noDuplicates,
   );
+  /// Evita procesar varias lecturas mientras se busca un producto.
   bool _isProcessing = false;
 
   @override

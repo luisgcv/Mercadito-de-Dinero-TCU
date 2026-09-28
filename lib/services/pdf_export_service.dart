@@ -9,9 +9,20 @@ import 'package:printing/printing.dart';
 import '../models/producto.dart';
 import 'image_storage_service.dart';
 
+/// Genera el catálogo de productos en PDF (tamaño A4).
+///
+/// El PDF contiene una tabla con: imagen del producto, nombre, precio en
+/// colones y el código QR. Está pensado para imprimirse y recortar los QR
+/// que se pegan en los productos físicos del taller.
+///
+/// Al terminar abre el diálogo nativo de impresión/guardado del paquete
+/// `printing`.
 class PdfExportService {
   final ImageStorageService _imageStorage = ImageStorageService();
 
+  /// Construye el PDF con todos los [productos] y abre el diálogo para
+  /// imprimirlo o guardarlo. Las tablas largas se dividen en varias páginas
+  /// automáticamente (`pw.MultiPage`).
   Future<void> exportarCatalogoPdf(List<Producto> productos) async {
     final pdf = pw.Document();
 
@@ -213,6 +224,7 @@ class PdfExportService {
     );
   }
 
+  /// Genera la imagen PNG (256×256) del código QR de [data] para el PDF.
   Future<pw.ImageProvider> _generarQrImage(String data) async {
     final painter = QrPainter(
       data: data,
@@ -234,6 +246,8 @@ class PdfExportService {
     return pw.MemoryImage(byteData.buffer.asUint8List());
   }
 
+  /// Carga la imagen del producto para el PDF. Devuelve `null` si el producto
+  /// no tiene imagen o el archivo ya no existe (se muestra "Sin imagen").
   Future<pw.ImageProvider?> _generarImagenProducto(String? relativePath) async {
     if (relativePath == null || relativePath.isEmpty) {
       return null;

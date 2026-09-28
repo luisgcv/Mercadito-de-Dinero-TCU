@@ -6,6 +6,11 @@ import '../theme/app_brand.dart';
 import '../widgets/brand_logo.dart';
 import 'home_screen.dart';
 
+/// Pantalla de bienvenida animada que se muestra al abrir la app.
+///
+/// Anima el logo (escala con rebote + aparición gradual) durante 1.2 s y,
+/// a los 2.2 s, reemplaza la ruta por [HomeScreen] con una transición de
+/// desvanecimiento (el usuario no puede volver al splash con "atrás").
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
 
@@ -37,6 +42,7 @@ class _SplashScreenState extends State<SplashScreen>
     unawaited(_goToHome());
   }
 
+  /// Espera 2.2 s y navega a [HomeScreen] con `pushReplacement`.
   Future<void> _goToHome() async {
     await Future<void>.delayed(const Duration(milliseconds: 2200));
     if (!mounted) return;
@@ -115,6 +121,7 @@ class _SplashScreenState extends State<SplashScreen>
     );
   }
 
+  /// Círculo decorativo de fondo.
   Widget _bubble(double size, Color color) {
     return Container(
       width: size,

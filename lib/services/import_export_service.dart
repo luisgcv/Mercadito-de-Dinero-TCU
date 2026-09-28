@@ -10,10 +10,45 @@ import 'package:share_plus/share_plus.dart';
 import '../database/database_helper.dart';
 import 'image_storage_service.dart';
 
+/// Respaldo completo de la app en un archivo ZIP (exportar, compartir e
+/// importar).
+///
+/// ### Estructura del ZIP
+///
+/// ```
+/// mercadito_backup_<timestamp>.zip
+/// ├── backup.json        # Contenido de TODAS las tablas de SQLite
+/// └── images/            # Imágenes referenciadas por la columna image_path
+///     └── <archivo>.jpg
+/// ```
+///
+/// Formato de `backup.json`:
+///
+/// ```json
+/// {
+///   "app": "mercadito",
+///   "version": 2,
+///   "exported_at": "2026-05-29T14:32:00.000",
+///   "tables": { "productos": [ { "id": 1, "nombre": "...", ... } ] }
+/// }
+/// ```
+///
+/// Por compatibilidad, al importar también se acepta un JSON que sea
+/// directamente una lista de productos (formato antiguo).
+///
+/// La importación es "todo o nada": si algo falla a mitad del proceso se
+/// restauran los datos anteriores y se borran las imágenes ya copiadas.
 class ImportExportService {
   final DatabaseHelper _db = DatabaseHelper.instance;
   final ImageStorageService _imageStorage = ImageStorageService();
 
+  /// Crea el ZIP de respaldo y muestra el diálogo "Guardar como".
+  ///
+  /// En Android/iOS los bytes se entregan al plugin `file_picker`, que los
+  /// escribe en la ubicación elegida. En escritorio se recibe una ruta y el
+  /// archivo se escribe con [_guardarArchivoEnRuta].
+  ///
+  /// Lanza excepción si el usuario cancela. Devuelve la ruta final.
   Future<String> exportarZipCompleto() async {
     final archivoZip = await _crearArchivoZipTemporal();
     final nombreArchivo =
@@ -55,6 +90,7 @@ class ImportExportService {
     return archivo.path;
   }
 
+  /// Crea el ZIP en una carpeta temporal y abre el menú nativo de compartir.
   Future<String> compartirZipCompleto() async {
     final archivoZip = await _crearArchivoZipTemporal();
 
@@ -69,6 +105,18 @@ class ImportExportService {
     return archivoZip.path;
   }
 
+  /// Pide al usuario un ZIP y restaura su contenido.
+  ///
+  /// Pasos:
+  /// 1. Descomprime el ZIP en una carpeta temporal.
+  /// 2. Lee `backup.json` y extrae las tablas ([_extraerTablasDesdeJson]).
+  /// 3. Verifica que todas las imágenes referenciadas estén en el ZIP.
+  /// 4. Guarda una copia de los datos actuales (para revertir si falla).
+  /// 5. Copia las imágenes y reemplaza los datos de la base de datos.
+  /// 6. Si ocurre un error, restaura la copia y borra las imágenes copiadas.
+  /// 7. Siempre elimina la carpeta temporal.
+  ///
+  /// Devuelve la ruta del ZIP importado.
   Future<String> importarZipCompleto() async {
     final resultado = await FilePicker.platform.pickFiles(
       dialogTitle: 'Selecciona backup ZIP',
@@ -153,6 +201,7 @@ class ImportExportService {
     }
   }
 
+  /// Genera el texto de `backup.json` (con sangría para que sea legible).
   Future<String> _crearContenidoBackupZip() async {
     final tablas = await _db.obtenerDatosDeTodasLasTablas();
 
@@ -166,6 +215,9 @@ class ImportExportService {
     return const JsonEncoder.withIndent('  ').convert(payload);
   }
 
+  /// Construye el ZIP (`backup.json` + imágenes existentes) en una carpeta
+  /// temporal del sistema y devuelve el archivo. Las imágenes que falten en
+  /// el dispositivo se omiten silenciosamente.
   Future<File> _crearArchivoZipTemporal() async {
     final directorio = await Directory.systemTemp.createTemp('mercadito_zip_');
     final contenidoJson = await _crearContenidoBackupZip();
@@ -199,6 +251,8 @@ class ImportExportService {
     return archivoZip;
   }
 
+  /// Escribe [bytes] en [rutaArchivo] (agregando [extension] si falta),
+  /// creando las carpetas necesarias. Verifica que el archivo quedó escrito.
   Future<File> _guardarArchivoEnRuta(
     String rutaArchivo,
     Uint8List bytes, {
@@ -229,6 +283,7 @@ class ImportExportService {
     return archivo;
   }
 
+  /// Convierte rutas con formato `file://...` en rutas normales del sistema.
   String _normalizarRutaArchivo(String rutaArchivo) {
     if (rutaArchivo.startsWith('file://')) {
       return Uri.parse(rutaArchivo).toFilePath();
@@ -236,6 +291,8 @@ class ImportExportService {
     return rutaArchivo;
   }
 
+  /// Obtiene una ruta utilizable del archivo elegido. Si el selector solo
+  /// entregó los bytes (algunas plataformas), los escribe en un temporal.
   String? _obtenerRutaArchivoSeleccionado(PlatformFile archivo) {
     if (archivo.path != null && archivo.path!.isNotEmpty) {
       return archivo.path;
@@ -254,6 +311,8 @@ class ImportExportService {
     return null;
   }
 
+  /// Recorre todas las filas de todas las tablas y devuelve los valores no
+  /// vacíos de la columna `image_path`.
   Iterable<String> _obtenerReferenciasImagenesDesdeTablas(
     Map<String, List<Map<String, dynamic>>> tablas,
   ) sync* {
@@ -267,6 +326,10 @@ class ImportExportService {
     }
   }
 
+  /// Descomprime todas las entradas de [archive] dentro de [destino].
+  ///
+  /// TODO: validar que las rutas de las entradas no salgan de [destino]
+  /// (protección "zip slip") si se van a importar ZIPs de origen desconocido.
   void _extraerArchivoZip(Archive archive, Directory destino) {
     for (final entry in archive) {
       final nombre = p.normalize(entry.name);
@@ -282,6 +345,13 @@ class ImportExportService {
     }
   }
 
+  /// Interpreta el contenido de `backup.json`:
+  ///
+  /// - Formato actual: `{ "tables": { "tabla": [filas] } }`.
+  /// - Formato antiguo: una lista de productos → `{ "productos": [...] }`.
+  ///
+  /// Elimina la columna obsoleta `qr_image_base64` si viene en los datos.
+  /// Lanza excepción si el formato no es reconocido.
   Map<String, List<Map<String, dynamic>>> _extraerTablasDesdeJson(
     dynamic data,
   ) {

@@ -4,6 +4,16 @@ import 'package:provider/provider.dart';
 import '../controllers/import_export_controller.dart';
 import '../controllers/producto_controller.dart';
 
+/// Pantalla de respaldos de la base de datos.
+///
+/// Ofrece tres acciones sobre un ZIP que contiene todos los datos e
+/// imágenes (ver formato en [ImportExportService]):
+///
+/// - **Importar**: reemplaza los datos actuales por los del ZIP.
+/// - **Exportar**: guarda el ZIP en una ubicación elegida por el usuario.
+/// - **Compartir**: envía el ZIP por WhatsApp, correo, Drive, etc.
+///
+/// Sirve para pasar el catálogo de un dispositivo a otro antes de un taller.
 class ImportExportScreen extends StatefulWidget {
   const ImportExportScreen({super.key});
 
@@ -12,6 +22,7 @@ class ImportExportScreen extends StatefulWidget {
 }
 
 class _ImportExportScreenState extends State<ImportExportScreen> {
+  /// Exporta el ZIP y muestra la ruta resultante o el error.
   Future<void> _exportarZip(BuildContext context) async {
     final controller = context.read<ImportExportController>();
 
@@ -29,6 +40,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
     }
   }
 
+  /// Genera el ZIP y abre el menú de compartir.
   Future<void> _compartirZip(BuildContext context) async {
     final controller = context.read<ImportExportController>();
 
@@ -46,6 +58,7 @@ class _ImportExportScreenState extends State<ImportExportScreen> {
     }
   }
 
+  /// Importa un ZIP y recarga la lista de productos.
   Future<void> _importarZip(BuildContext context) async {
     final controller = context.read<ImportExportController>();
 

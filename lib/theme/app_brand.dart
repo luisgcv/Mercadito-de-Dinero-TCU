@@ -1,13 +1,27 @@
 import 'package:flutter/material.dart';
 
+/// Identidad visual de la app: paleta de colores, gradiente de fondo y tema
+/// de Material 3.
+///
+/// **Usar siempre estas constantes** en lugar de escribir colores directos
+/// en las pantallas, para mantener la coherencia visual. La guía completa
+/// está en `docs/identidad_visual.md`.
 class AppBrand {
+  /// Celeste: color primario del tema (`#00C0F3`).
   static const Color celeste = Color(0xFF00C0F3);
+  /// Azul oscuro: textos, íconos y estructura (`#005DA4`).
   static const Color azulOscuro = Color(0xFF005DA4);
+  /// Naranja: color de acción (botones principales) (`#F37021`).
   static const Color naranja = Color(0xFFF37021);
+  /// Amarillo naranja: detalles y moneda del logo (`#F99D1C`).
   static const Color amarilloNaranja = Color(0xFFF99D1C);
+  /// Verde: acento educativo (`#8DC63F`).
   static const Color verde = Color(0xFF8DC63F);
+  /// Blanco: superficies y tarjetas.
   static const Color blanco = Color(0xFFFFFFFF);
 
+  /// Gradiente suave (celeste → naranja → verde) usado de fondo en el splash
+  /// y el menú principal.
   static const LinearGradient fondoGradiente = LinearGradient(
     begin: Alignment.topLeft,
     end: Alignment.bottomRight,
@@ -15,6 +29,8 @@ class AppBrand {
     stops: [0.1, 0.55, 1],
   );
 
+  /// Tema global de la app (se aplica en [MyApp]). Define los estilos de
+  /// AppBar, tarjetas, botones, chips, campos de texto y SnackBars.
   static ThemeData get theme {
     const radius = 20.0;
 

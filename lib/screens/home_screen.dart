@@ -6,6 +6,16 @@ import 'productos_screen.dart';
 import 'carrito_screen.dart';
 import 'import_export_screen.dart';
 
+/// Menú principal de la app.
+///
+/// Muestra el logo y tres tarjetas de navegación:
+///
+/// - **Productos** → [ProductosScreen]: administrar el catálogo.
+/// - **Carrito** → [CarritoScreen]: simular una compra.
+/// - **Importar / Exportar** → [ImportExportScreen]: respaldos ZIP.
+///
+/// Para agregar una nueva sección, añadir otra llamada a [_menuCard] en
+/// [build].
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
@@ -111,6 +121,8 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
+  /// Tarjeta de menú con ícono, título y subtítulo que al tocarse navega a
+  /// [screen]. [color] se usa (con transparencia) como fondo del ícono.
   Widget _menuCard(
     BuildContext context, {
     required Color color,

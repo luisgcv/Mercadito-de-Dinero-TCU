@@ -3,8 +3,19 @@ import 'package:provider/provider.dart';
 import '../controllers/carrito_controller.dart';
 import '../models/carrito_item.dart';
 
+/// Pantalla de cierre de compra (componente educativo principal).
+///
+/// Muestra el detalle de la compra y un campo para ingresar el dinero que
+/// tiene el estudiante. Calcula en tiempo real si **le alcanza** y cuánto es
+/// el **cambio** o el **faltante**, con colores verde/rojo.
+///
+/// Botones:
+/// - "Volver al carrito": regresa sin cambios.
+/// - "Nuevo cliente": vacía el carrito y regresa.
 class CheckoutResultScreen extends StatefulWidget {
+  /// Copia de las líneas del carrito al momento de finalizar la compra.
   final List<CarritoItem> items;
+  /// Total de la compra.
   final double total;
 
   const CheckoutResultScreen({
@@ -18,7 +29,9 @@ class CheckoutResultScreen extends StatefulWidget {
 }
 
 class _CheckoutResultScreenState extends State<CheckoutResultScreen> {
+  /// Campo de texto del dinero entregado por el estudiante.
   final TextEditingController _dineroController = TextEditingController();
+  /// Monto ingresado, o `null` si el texto no es un número válido.
   double? _dineroRecibido;
 
   @override
@@ -27,6 +40,7 @@ class _CheckoutResultScreenState extends State<CheckoutResultScreen> {
     super.dispose();
   }
 
+  /// Convierte el texto ingresado en número y redibuja el resultado.
   void _actualizarDinero(String value) {
     final texto = value.trim();
     setState(() {

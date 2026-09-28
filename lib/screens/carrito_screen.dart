@@ -7,6 +7,15 @@ import 'scanner_screen.dart';
 import '../services/audio_service.dart';
 import 'checkout_result_screen.dart';
 
+/// Pantalla del carrito: aquí se simula la compra durante el taller.
+///
+/// Formas de agregar productos:
+/// - Botón flotante de escáner → [ScannerScreen] (leer el QR del producto).
+/// - Ícono de búsqueda → buscar por nombre (útil si la cámara falla).
+///
+/// Cada línea permite sumar/restar unidades o eliminarla. Abajo se muestra
+/// el total y los botones "Finalizar compra" (abre [CheckoutResultScreen])
+/// y "Vaciar carrito".
 class CarritoScreen extends StatefulWidget {
   const CarritoScreen({super.key});
 
@@ -15,9 +24,12 @@ class CarritoScreen extends StatefulWidget {
 }
 
 class _CarritoScreenState extends State<CarritoScreen> {
-  // Variable para controlar si estamos navegando
+  /// Evita abrir la pantalla de resultado dos veces por toques repetidos.
   bool _isNavigating = false;
 
+  /// Abre [CheckoutResultScreen] con una **copia** de las líneas y el total
+  /// actual, para que la pantalla de resultado no cambie si el carrito se
+  /// modifica o se vacía mientras está abierta.
   Future<void> _mostrarDialogoFinalizarCompra(BuildContext context) async {
     if (_isNavigating) return;
 
@@ -62,6 +74,10 @@ class _CarritoScreenState extends State<CarritoScreen> {
     }
   }
 
+  /// Pide un nombre y agrega el producto al carrito:
+  /// - 0 resultados: muestra un aviso.
+  /// - 1 resultado: lo agrega directamente.
+  /// - Varios: muestra una lista para elegir cuál agregar.
   Future<void> _buscarPorNombre(BuildContext context) async {
     final busquedaController = TextEditingController();
 

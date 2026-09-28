@@ -9,24 +9,58 @@ import 'package:path_provider/path_provider.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
+/// Acceso de bajo nivel a la base de datos SQLite local (`mercadito.db`).
+///
+/// Es un *singleton*: se usa siempre [DatabaseHelper.instance] para compartir
+/// una única conexión. Trabaja con `Map<String, dynamic>` (filas crudas); la
+/// conversión a [Producto] la hace [ProductoService].
+///
+/// ### Esquema actual (versión [_databaseVersion] = 2)
+///
+/// ```sql
+/// CREATE TABLE productos(
+///   id INTEGER PRIMARY KEY AUTOINCREMENT,
+///   nombre TEXT NOT NULL,
+///   precio REAL NOT NULL,
+///   codigo_qr TEXT UNIQUE NOT NULL,
+///   image_path TEXT
+/// )
+/// ```
+///
+/// ### Cómo modificar el esquema
+///
+/// 1. Incrementar [_databaseVersion].
+/// 2. Agregar la tabla/columna nueva en [_createDB] (instalaciones nuevas).
+/// 3. Agregar la migración en [_onUpgrade] con `if (oldVersion < N)`
+///    (instalaciones existentes).
+///
+/// Las funciones de respaldo ZIP ([obtenerDatosDeTodasLasTablas] y
+/// [reemplazarDatosDesdeJsonCompleto]) recorren **todas** las tablas de
+/// usuario, por lo que una tabla nueva queda incluida automáticamente en los
+/// respaldos.
 class DatabaseHelper {
-  // Singleton (una sola instancia de la DB)
+  /// Instancia única (singleton) del helper.
   static final DatabaseHelper instance = DatabaseHelper._init();
 
+  /// Versión del esquema. Se debe incrementar cada vez que se cambie la
+  /// estructura de las tablas (ver [_onUpgrade]).
   static const int _databaseVersion = 2;
 
+  /// Conexión abierta; se crea de forma perezosa en el primer acceso.
   static Database? _database;
 
   DatabaseHelper._init();
 
-  // Obtener la base de datos
+  /// Devuelve la conexión a la base de datos, abriéndola (y creándola si
+  /// no existe) la primera vez que se solicita.
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDB('mercadito.db');
     return _database!;
   }
 
-  // Inicializar DB
+  /// Abre el archivo [filePath] dentro del directorio de bases de datos del
+  /// sistema y configura los callbacks de creación y migración.
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getDatabasesPath();
     final path = join(dbPath, filePath);
@@ -39,7 +73,7 @@ class DatabaseHelper {
     );
   }
 
-  // Crear tablas
+  /// Crea las tablas cuando la base de datos no existía (instalación nueva).
   Future _createDB(Database db, int version) async {
     await db.execute('''
       CREATE TABLE productos(
@@ -52,6 +86,10 @@ class DatabaseHelper {
     ''');
   }
 
+  /// Migra el esquema cuando la app se actualiza y [_databaseVersion] es
+  /// mayor que la versión guardada en el dispositivo.
+  ///
+  /// - v1 → v2: se agregó la columna `image_path` a `productos`.
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await db.execute('ALTER TABLE productos ADD COLUMN image_path TEXT');
@@ -60,19 +98,21 @@ class DatabaseHelper {
 
   // ---------------- CRUD PRODUCTOS ----------------
 
-  // INSERTAR producto
+  /// Inserta un producto (en formato `Map`) y devuelve el `id` generado.
+  /// Falla si el `codigo_qr` ya existe (restricción `UNIQUE`).
   Future<int> insertProducto(Map<String, dynamic> producto) async {
     final db = await instance.database;
     return await db.insert('productos', producto);
   }
 
-  // OBTENER todos los productos
+  /// Devuelve todas las filas de la tabla `productos`.
   Future<List<Map<String, dynamic>>> getProductos() async {
     final db = await instance.database;
     return await db.query('productos');
   }
 
-  // BUSCAR por QR
+  /// Busca el producto cuyo `codigo_qr` coincide exactamente con [qr].
+  /// Devuelve `null` si no existe. Lo usa el escáner del carrito.
   Future<Map<String, dynamic>?> getProductoByQR(String qr) async {
     final db = await instance.database;
 
@@ -89,7 +129,7 @@ class DatabaseHelper {
     }
   }
 
-  // BUSCAR por nombre
+  /// Busca productos cuyo nombre **contenga** [nombre] (`LIKE %nombre%`).
   Future<List<Map<String, dynamic>>> buscarPorNombre(String nombre) async {
     final db = await instance.database;
 
@@ -100,7 +140,8 @@ class DatabaseHelper {
     );
   }
 
-  // ACTUALIZAR producto
+  /// Actualiza la fila cuyo `id` coincide con `producto['id']`.
+  /// Devuelve la cantidad de filas modificadas.
   Future<int> updateProducto(Map<String, dynamic> producto) async {
     final db = await instance.database;
 
@@ -112,20 +153,23 @@ class DatabaseHelper {
     );
   }
 
-  // ELIMINAR producto
+  /// Elimina el producto con el [id] indicado.
   Future<int> deleteProducto(int id) async {
     final db = await instance.database;
 
     return await db.delete('productos', where: 'id = ?', whereArgs: [id]);
   }
 
-  // ELIMINAR todos los productos
+  /// Elimina todas las filas de `productos` (no borra las imágenes; eso lo
+  /// hace [ProductoService.eliminarTodosLosProductos]).
   Future<int> deleteAllProductos() async {
     final db = await instance.database;
 
     return await db.delete('productos');
   }
 
+  /// Lista los nombres de todas las tablas creadas por la app, excluyendo
+  /// las tablas internas de SQLite (`sqlite_*`).
   Future<List<String>> obtenerNombresTablasUsuario() async {
     final db = await instance.database;
 
@@ -142,6 +186,9 @@ class DatabaseHelper {
         .toList(growable: false);
   }
 
+  /// Devuelve el contenido completo de la base de datos como
+  /// `{nombreTabla: [filas...]}`. Es la fuente de datos del respaldo ZIP
+  /// (ver [ImportExportService]).
   Future<Map<String, List<Map<String, dynamic>>>>
   obtenerDatosDeTodasLasTablas() async {
     final db = await instance.database;
@@ -156,6 +203,12 @@ class DatabaseHelper {
     return datos;
   }
 
+  /// Reemplaza **todo** el contenido de la base de datos por [tablas]
+  /// (mismo formato que [obtenerDatosDeTodasLasTablas]).
+  ///
+  /// Se ejecuta en una transacción: primero vacía cada tabla existente y
+  /// luego inserta los registros recibidos. Las tablas del JSON que no
+  /// existan en la base de datos actual se ignoran.
   Future<void> reemplazarDatosDesdeJsonCompleto(
     Map<String, List<Map<String, dynamic>>> tablas,
   ) async {
@@ -181,20 +234,26 @@ class DatabaseHelper {
     });
   }
 
-  // ---------------- RESPALDO JSON ----------------
+  // ---------------- RESPALDO JSON (LEGADO) ----------------
+  //
+  // NOTA: los métodos de esta sección son la primera versión del respaldo
+  // (solo JSON / carpeta con QRs). Actualmente la interfaz NO los usa: el
+  // respaldo vigente es el ZIP de [ImportExportService]. Se conservan como
+  // referencia; si se decide no usarlos, pueden eliminarse.
 
-  // Obtiene una carpeta local para guardar archivos JSON.
-  // Intenta usar Descargas y, si no existe, usa Documentos de la app.
+  /// Carpeta donde se guardan los respaldos JSON legados: el directorio de
+  /// documentos de la app.
   Future<Directory> _obtenerDirectorioRespaldo() async {
     final dir = await getApplicationDocumentsDirectory();
     return dir;
   }
 
-  // EXPORTAR A JSON:
-  // 1) Lee todos los productos de SQLite.
-  // 2) Los convierte a JSON.
-  // 3) Guarda el archivo en almacenamiento local.
-  // 4) Retorna la ruta del archivo generado.
+  /// **(Legado, sin uso en la UI)** Exporta los productos a JSON:
+  ///
+  /// 1. Lee todos los productos de SQLite.
+  /// 2. Los convierte a JSON.
+  /// 3. Guarda `productos_backup.json` en el directorio de documentos.
+  /// 4. Retorna la ruta del archivo generado.
   Future<String> exportarProductosJSON() async {
     try {
       final productos = await getProductos();
@@ -211,6 +270,14 @@ class DatabaseHelper {
     }
   }
 
+  /// **(Legado, sin uso en la UI)** Crea una carpeta
+  /// `mercadito_export_<timestamp>` en documentos con:
+  ///
+  /// - `productos.json`: todos los productos.
+  /// - Un PNG con el código QR de cada producto.
+  /// - `manifest.json`: relación producto ↔ imagen QR.
+  ///
+  /// Retorna la ruta de la carpeta creada.
   Future<String> exportarRespaldoCompleto() async {
     try {
       final productos = await getProductos();
@@ -263,6 +330,7 @@ class DatabaseHelper {
     }
   }
 
+  /// Genera un PNG de 1024×1024 con el código QR de [data].
   Future<Uint8List> _generarQrPng(String data) async {
     final painter = QrPainter(
       data: data,
@@ -284,6 +352,8 @@ class DatabaseHelper {
     return byteData.buffer.asUint8List();
   }
 
+  /// Convierte [input] en un nombre de archivo seguro: sin caracteres
+  /// inválidos, espacios reemplazados por `_` y en minúsculas.
   String _limpiarNombreArchivo(String input) {
     return input
         .trim()
@@ -292,10 +362,12 @@ class DatabaseHelper {
         .toLowerCase();
   }
 
-  // IMPORTAR DESDE JSON:
-  // 1) Lee el archivo JSON desde la ruta indicada.
-  // 2) Convierte el contenido a lista de productos.
-  // 3) Inserta/actualiza en SQLite evitando duplicados con replace.
+  /// **(Legado, sin uso en la UI)** Importa productos desde un JSON:
+  ///
+  /// 1. Lee el archivo JSON desde [rutaArchivo].
+  /// 2. Valida que el contenido sea una lista de productos.
+  /// 3. Inserta/actualiza en SQLite usando `ConflictAlgorithm.replace`
+  ///    para evitar duplicados.
   Future<void> importarProductosJSON(String rutaArchivo) async {
     try {
       final archivo = File(rutaArchivo);
